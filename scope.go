@@ -251,8 +251,21 @@ func (scope *Scope) CallMethod(methodName string) {
 	}
 }
 
+type exprValuer interface {
+	// ExprValue is a variant of driver.Value which expected to return an expression that will not be quoted in SQLVars.
+	// If err is not nil, expr will not be added to SQLVars, causing an error to be raised by the database driver due to
+	// the mismatch between the number of replacement tokens and SQLVars.
+	ExprValue() (expr string, err error)
+}
+
 // AddToVars add value as sql's vars, used to prevent SQL injection
 func (scope *Scope) AddToVars(value interface{}) string {
+	if expr, ok := value.(exprValuer); ok {
+		if val, err := expr.ExprValue(); err == nil {
+			return val
+		}
+	}
+
 	if expr, ok := value.(*expr); ok {
 		exp := expr.expr
 		for _, arg := range expr.args {
